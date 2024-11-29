@@ -11,8 +11,8 @@ void free_matrix(Matrix *m) {
     free(m);
 }
 
-void free_matrices(Matrix **matrices, int length) {
-    for (int i = 0; i < length; i++) {
+void free_matrices(Matrix **matrices, int matrices_count) {
+    for (int i = 0; i < matrices_count; i++) {
         free_matrix(matrices[i]);
     }
 }
@@ -21,12 +21,23 @@ Matrix *alloc_matrix(int rows, int columns) {
     Matrix *m = (Matrix*)malloc(sizeof(Matrix));
     m->rows = rows;
     m->columns = columns;
-    m->numbers = (int*)malloc((rows * columns) * sizeof(int));
-
+    m->numbers = (int*)calloc((rows * columns), sizeof(int));
+    
     return m;
 }
 
+void copy_matrix(Matrix *src, Matrix *dst) {
+    dst->rows = src->rows;
+    dst->columns = src->columns;
+    dst->numbers = (int*)malloc(dst->columns * dst->rows * sizeof(int));
+
+    for (int i = 0; i < src->rows * src->columns; i++) {
+        dst->numbers[i] = src->numbers[i];
+    }
+}
+
 void print_matrix(Matrix *m) {
+    printf("%d %d\n", m->rows, m->columns);
     for (int i = 0; i < m->rows; i++) {
         for (int j = 0; j < m->columns; j++) {
             printf("%d ", m->numbers[i * m->columns + j]);
@@ -39,8 +50,6 @@ void print_matrix(Matrix *m) {
 /* The main program */
 int main(int argc, char *argv[])
 {
-    Matrix resulted_matrix;
-
     // array of operators (chars). Default size = 5;
     char *operators = malloc(5);
     int operators_count = 0;
@@ -89,24 +98,14 @@ int main(int argc, char *argv[])
                 }
             }
 
-            /* printf("Read:\n");
-             // read the matrix
-            for (int row = 0; row < rows; row++) {
-                for (int column = 0; column < columns; column++) {
-                    int matrix_index = row * m->columns + column;
-                    printf("[%d] %d ", matrix_index, m->numbers[matrix_index]);
-                }
-            }
-            printf("\nEnd.\n"); */
-
             // check if need to increase memory
             if ((float)matrices_count / matrices_allocated > 0.8) {
                 //printf("Matrices count: %d\nMemory allocated for: %d\nIncreasing.\n", matrices_count, matrices_allocated);
                 matrices_allocated += 5;
                 matrices = realloc(matrices, matrices_allocated * sizeof(Matrix));
             }
+
         } else {
-            //printf("Entering an operator\n");
             // read an operator
             read_result = scanf("\n%c", (operators + operators_count));
             
@@ -123,56 +122,53 @@ int main(int argc, char *argv[])
         }
     }
 
-    Matrix resulted_matrix;
-    resulted_matrix.columns = matrices[0]->columns;
-    resulted_matrix.rows = matrices[0]->rows;
-    resulted_matrix.numbers = (int*)malloc(resulted_matrix.columns * resulted_matrix.rows * sizeof(int));
+    Matrix *resulted_matrix = (Matrix*)malloc(sizeof(Matrix));
+    copy_matrix(matrices[0], resulted_matrix);
 
-    // +,- size of the result matrix stays the same
-    // * size equals <m1.columns, m2.rows>
-
-    // + only for now
     for (int index = 0; index < matrices_count - 1; index++) {
-        Matrix *m1 = matrices[index];
         Matrix *m2 = matrices[index + 1];
+        int number_of_items = m2->columns * m2->rows;
 
         if (operators[index] == '+') {
-            int number_of_items = m2->columns * m2->rows;
             for (int j = 0; j < number_of_items; j++) {
-                m2->numbers[j] = m1->numbers[j] + m2->numbers[j];
+                resulted_matrix->numbers[j] = resulted_matrix->numbers[j] + m2->numbers[j];
             }
-            resulted_matrix = m2;
         }
         if (operators[index] == '-') {
-            int number_of_items = m2->columns * m2->rows;
             for (int j = 0; j < number_of_items; j++) {
-                m2->numbers[j] = m1->numbers[j] - m2->numbers[j];
+                resulted_matrix->numbers[j] = resulted_matrix->numbers[j] - m2->numbers[j];
             }
-            resulted_matrix = m2;
         }
         if (operators[index] == '*') {
-            int result = 0;
-            for (int j = 0; j < m1->rows; j++) {
-                for (int k = 0; k < m1->columns; k++) {
-                    printf("element [%d][%d]:\n", j, k);
-                    for (int l = 0; l < m1->columns; l++) {
-                        printf("m1: %d\n", m1->numbers[j * m1->columns + l]);
-                        printf("m2: %d\n", m2->numbers[l * m2->columns + k]);
-                        result += m1->numbers[j * m1->columns + l] * m2->numbers[l * m2->columns + k];
-                    }
+            // make a copy, to take original values from and put the result in resulted_matrix
+            Matrix *copy = (Matrix*)malloc(sizeof(Matrix));
+            copy_matrix(resulted_matrix, copy);
 
+            // reformate the resulted matrix
+            resulted_matrix->columns = m2->columns;
+            resulted_matrix->numbers = (int*)realloc(resulted_matrix->numbers, resulted_matrix->rows * resulted_matrix->columns * sizeof(int));            
+            
+            // iterate over each element of the resulting matrix
+            for (int j = 0; j < resulted_matrix->rows; j++) {
+                for (int k = 0; k < resulted_matrix->columns; k++) {
+                    int result = 0;
+                    for (int l = 0; l < m2->rows; l++) {
+                        result += copy->numbers[j * copy->columns + l] * m2->numbers[l * m2->columns + k];
+                    }
+                    resulted_matrix->numbers[j * resulted_matrix->columns + k] = result;
                 }
             }
+
+            free_matrix(copy);
         }
     }
 
+    printf("\nResult:\n");
     print_matrix(resulted_matrix);
 
-    printf("freeing matrices.\n");
     free_matrices(matrices, matrices_count);
-    printf("free matrices.\n");
     free(matrices);
-    printf("freeing operators.\n");
     free(operators);
+    free_matrix(resulted_matrix);
     return 0;
 }

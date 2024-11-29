@@ -4,6 +4,7 @@
 typedef struct {
     int rows, columns;
     int *numbers;
+    Matrix *next;
 } Matrix;
 
 void free_matrix(Matrix *m) {
@@ -95,6 +96,11 @@ int main(int argc, char *argv[])
                 for (int column = 0; column < columns; column++) {
                     int matrix_index = row * m->columns + column;
                     read_result = scanf("%d", &m->numbers[matrix_index]);
+                    printf("read: %d\n", m->numbers[matrix_index]);
+                    if (read_result != 1) {
+                        fprintf(stderr, "Error: Chybny vstup!\n");
+                        return 100;
+                    }
                 }
             }
 
@@ -122,24 +128,70 @@ int main(int argc, char *argv[])
         }
     }
 
+    printf("-----------\n");
+
+    for (int i = 0; i < operators_count; i++) {
+        if (operators[i] != '*') continue;
+
+        Matrix *m1 = matrices[i];
+        Matrix *m2 = matrices[i + 1];
+        Matrix *resulted_matrix = (Matrix*)malloc(sizeof(Matrix));
+        copy_matrix(m1, resulted_matrix);
+
+        resulted_matrix->columns = m2->columns;
+        resulted_matrix->numbers = (int*)realloc(resulted_matrix->numbers, resulted_matrix->rows * resulted_matrix->columns * sizeof(int));            
+
+        for (int j = 0; j < resulted_matrix->rows; j++) {
+            for (int k = 0; k < resulted_matrix->columns; k++) {
+                int result = 0;
+                for (int l = 0; l < m2->rows; l++) {
+                    result += m1->numbers[j * m1->columns + l] * m2->numbers[l * m2->columns + k];
+                }
+                resulted_matrix->numbers[j * resulted_matrix->columns + k] = result;
+            }
+        }
+
+        matrices[i] = NULL;
+        free(matrices[i + 1]);
+        matrices[i + 1] = resulted_matrix;
+    }
+
     Matrix *resulted_matrix = (Matrix*)malloc(sizeof(Matrix));
     copy_matrix(matrices[0], resulted_matrix);
 
-    for (int index = 0; index < matrices_count - 1; index++) {
+    for (int index = 0, op_index = 0; index < matrices_count - 1; index++, op_index++) {
+        while (matrices[index] == NULL)
+            index++;
+
         Matrix *m2 = matrices[index + 1];
         int number_of_items = m2->columns * m2->rows;
 
-        if (operators[index] == '+') {
+        if (operators[op_index] == '+') {
+            if (resulted_matrix->columns != m2->columns || resulted_matrix->rows != m2->rows) {
+                fprintf(stderr, "Error: Chybny vstup +!\n");
+                fprintf(stderr, "%d != %d || %d != %d\n", resulted_matrix->columns, m2->columns, resulted_matrix->rows, m2->rows);
+                return 100;
+            }
             for (int j = 0; j < number_of_items; j++) {
-                resulted_matrix->numbers[j] = resulted_matrix->numbers[j] + m2->numbers[j];
+                resulted_matrix->numbers[j] += m2->numbers[j];
             }
         }
-        if (operators[index] == '-') {
+        if (operators[op_index] == '-') {
+            if (resulted_matrix->columns != m2->columns || resulted_matrix->rows != m2->rows) {
+                fprintf(stderr, "Error: Chybny vstup -!\n");
+                fprintf(stderr, "%d != %d || %d != %d\n", resulted_matrix->columns, m2->columns, resulted_matrix->rows, m2->rows);
+                return 100;
+            }
             for (int j = 0; j < number_of_items; j++) {
-                resulted_matrix->numbers[j] = resulted_matrix->numbers[j] - m2->numbers[j];
+                resulted_matrix->numbers[j] -= m2->numbers[j];
             }
         }
-        if (operators[index] == '*') {
+        if (operators[op_index] == '*') {
+            if (resulted_matrix->columns != m2->rows) {
+                fprintf(stderr, "Error: Chybny vstup!\n");
+                fprintf(stderr, "%d != %d\n", resulted_matrix->columns, m2->rows);
+                return 100;
+            }
             // make a copy, to take original values from and put the result in resulted_matrix
             Matrix *copy = (Matrix*)malloc(sizeof(Matrix));
             copy_matrix(resulted_matrix, copy);

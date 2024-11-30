@@ -1,54 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <matrix.h>
 
-typedef struct {
-    int rows, columns;
-    int *numbers;
-    Matrix *next;
-} Matrix;
-
-void free_matrix(Matrix *m) {
-    free(m->numbers);
-    free(m);
-}
-
-void free_matrices(Matrix **matrices, int matrices_count) {
-    for (int i = 0; i < matrices_count; i++) {
-        free_matrix(matrices[i]);
-    }
-}
-
-Matrix *alloc_matrix(int rows, int columns) {
-    Matrix *m = (Matrix*)malloc(sizeof(Matrix));
-    m->rows = rows;
-    m->columns = columns;
-    m->numbers = (int*)calloc((rows * columns), sizeof(int));
-    
-    return m;
-}
-
-void copy_matrix(Matrix *src, Matrix *dst) {
-    dst->rows = src->rows;
-    dst->columns = src->columns;
-    dst->numbers = (int*)malloc(dst->columns * dst->rows * sizeof(int));
-
-    for (int i = 0; i < src->rows * src->columns; i++) {
-        dst->numbers[i] = src->numbers[i];
-    }
-}
-
-void print_matrix(Matrix *m) {
-    printf("%d %d\n", m->rows, m->columns);
-    for (int i = 0; i < m->rows; i++) {
-        for (int j = 0; j < m->columns; j++) {
-            printf("%d ", m->numbers[i * m->columns + j]);
-        }
-        printf("\n");
-    }
-}
-
-
-/* The main program */
 int main(int argc, char *argv[])
 {
     // array of operators (chars). Default size = 5;
@@ -64,9 +17,10 @@ int main(int argc, char *argv[])
     int read_result;
     int rows, columns;
 
+    Matrix *list_pointer = NULL;
+
     while (1) {
         if (matrices_count == operators_count) {
-            //printf("Entering a matrix\n");
             Matrix *m;
             
             //printf("Enter number of rows and number of columns:\n");
@@ -79,7 +33,15 @@ int main(int argc, char *argv[])
             }
 
             // allocate memory for the matrix
-            m = alloc_matrix(rows, columns);
+            m = alloc_matrix(rows, columns, NULL);
+
+            if (list_pointer != NULL) {
+                list_pointer->next = m;
+            }
+
+            list_pointer = m;
+
+
 
             if (m == NULL) {
                 fprintf(stderr, "Not enough memory for a matrix!");
@@ -104,9 +66,7 @@ int main(int argc, char *argv[])
                 }
             }
 
-            // check if need to increase memory
-            if ((float)matrices_count / matrices_allocated > 0.8) {
-                //printf("Matrices count: %d\nMemory allocated for: %d\nIncreasing.\n", matrices_count, matrices_allocated);
+            if (matrices_count == matrices_allocated) {
                 matrices_allocated += 5;
                 matrices = realloc(matrices, matrices_allocated * sizeof(Matrix));
             }
@@ -135,9 +95,8 @@ int main(int argc, char *argv[])
 
         Matrix *m1 = matrices[i];
         Matrix *m2 = matrices[i + 1];
-        Matrix *resulted_matrix = (Matrix*)malloc(sizeof(Matrix));
-        copy_matrix(m1, resulted_matrix);
-
+        Matrix *resulted_matrix = copy_matrix(m1);
+        
         resulted_matrix->columns = m2->columns;
         resulted_matrix->numbers = (int*)realloc(resulted_matrix->numbers, resulted_matrix->rows * resulted_matrix->columns * sizeof(int));            
 
